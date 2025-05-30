@@ -258,12 +258,15 @@
         </div>
         
         <form id="adForm">
-            <!-- File Upload -->
+            <!-- File Upload (Optional) -->
             <div class="form-group">
-                <label class="label">Ürün Görseli Yükleyin</label>
+                <label class="label">Ürün Görseli Yükleyin (Opsiyonel)</label>
+                <div class="upload-note" style="background: #f0f9f4; color: #166534; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;">
+                    💡 <strong>İpucu:</strong> Fotoğraf yüklerseniz AI mevcut görselinizi geliştirir. Yüklemezseniz sadece açıklamanıza göre yeni görsel oluşturur.
+                </div>
                 <div class="upload-area" id="uploadArea">
                     <div class="upload-icon">📁</div>
-                    <div class="upload-text">Görselinizi buraya sürükleyin</div>
+                    <div class="upload-text">Görselinizi buraya sürükleyin (opsiyonel)</div>
                     <div class="upload-subtext">veya tıklayarak seçin (PNG, JPG, max 10MB)</div>
                     <input type="file" id="fileInput" class="file-input" accept="image/*">
                 </div>
@@ -431,11 +434,6 @@
         adForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            if (!selectedFile) {
-                showResult('❌ Lütfen bir görsel yükleyin.', 'error');
-                return;
-            }
-            
             if (!productDescription.value.trim()) {
                 showResult('❌ Lütfen ürün açıklaması girin.', 'error');
                 return;
@@ -457,28 +455,36 @@
                 progressBar.style.display = 'block';
                 showProgress(0);
                 
-                // Upload image to Supabase
-                const timestamp = Date.now();
-                const fileName = `${timestamp}_${selectedFile.name}`;
+                let publicUrl = null;
                 
-                showProgress(25);
-                
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('input-images')
-                    .upload(fileName, selectedFile);
-                
-                if (uploadError) throw uploadError;
-                
-                // Get public URL
-                const { data: { publicUrl } } = supabase.storage
-                    .from('input-images')
-                    .getPublicUrl(fileName);
-                
-                showProgress(50);
+                // Upload image to Supabase (only if file selected)
+                if (selectedFile) {
+                    const timestamp = Date.now();
+                    const fileName = `${timestamp}_${selectedFile.name}`;
+                    
+                    showProgress(25);
+                    
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('input-images')
+                        .upload(fileName, selectedFile);
+                    
+                    if (uploadError) throw uploadError;
+                    
+                    // Get public URL
+                    const { data: { publicUrl: uploadedUrl } } = supabase.storage
+                        .from('input-images')
+                        .getPublicUrl(fileName);
+                    
+                    publicUrl = uploadedUrl;
+                    showProgress(50);
+                } else {
+                    showProgress(50);
+                }
                 
                 // Prepare prompt data
                 const promptData = {
-                    image_url: publicUrl,
+                    image_url: publicUrl, // null if no image uploaded
+                    prompt: productDescription.value.trim(),
                     product_description: productDescription.value.trim(),
                     target_audience: targetAudience.value,
                     style_preference: selectedStyle,
@@ -497,9 +503,13 @@
                 
                 showProgress(100);
                 
+                const imageInfo = selectedFile ? 
+                    `📁 Dosya: ${selectedFile.name}<br>` : 
+                    '📁 Sadece açıklama ile oluşturulacak<br>';
+                
                 showResult(`
                     ✅ <strong>Başarıyla kaydedildi!</strong><br><br>
-                    📁 Dosya: ${selectedFile.name}<br>
+                    ${imageInfo}
                     🆔 ID: ${dbData[0].id}<br>
                     🎯 Hedef Kitle: ${getAudienceText(targetAudience.value)}<br>
                     🎨 Stil: ${selectedStyle ? getStyleText(selectedStyle) : 'Belirtilmedi'}<br>
