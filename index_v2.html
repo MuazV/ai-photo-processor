@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basit Görsel Yükleyici</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            background: #f8f9ff;
+            margin-bottom: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .select-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .select-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .preview-area {
+            margin-top: 30px;
+            text-align: center;
+            display: none;
+        }
+        
+        .preview-img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .send-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .send-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .file-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Görsel Yükleyici</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Görseli buraya sürükleyin veya tıklayın</div>
+            <button class="select-btn" onclick="document.getElementById('fileInput').click()">
+                Dosya Seç
+            </button>
+            <input type="file" id="fileInput" class="file-input" accept="image/*">
+        </div>
+        
+        <div class="preview-area" id="previewArea" style="display: none;">
+            <div class="file-info" id="fileInfo"></div>
+            <img id="previewImg" class="preview-img" alt="Preview">
+            
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        
+        <!-- Gönder butonu her zaman görünür -->
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="send-btn" id="sendBtn">🚀 Supabase'e Gönder</button>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        // Supabase Konfigürasyonu
+        const SUPABASE_URL = 'https://dludpntyonvjjqmnqhyk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsdWRwbnR5b252ampxbW5xaHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1ODIxOTIsImV4cCI6MjA2NDE1ODE5Mn0.thHVsN1KR5ia_2fxevGg6C4bGu7H-5f5sj97EdswHC4';
+        const BUCKET_NAME = 'input-images';
+        
+        let selectedFile = null;
+        
+        // DOM elementleri
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewArea = document.getElementById('previewArea');
+        const previewImg = document.getElementById('previewImg');
+        const fileInfo = document.getElementById('fileInfo');
+        const sendBtn = document.getElementById('sendBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const result = document.getElementById('result');
+        
+        // Drag & Drop olayları
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        // Dosya seçme
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        // Dosya işleme
+        function handleFile(file) {
+            // Dosya tipini kontrol et
+            if (!file.type.startsWith('image/')) {
+                showResult('❌ Lütfen geçerli bir görsel dosyası seçin.', 'error');
+                return;
+            }
+            
+            // Dosya boyutunu kontrol et (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                showResult('❌ Dosya boyutu 10MB\'dan küçük olmalıdır.', 'error');
+                return;
+            }
+            
+            selectedFile = file;
+            
+            // Dosya bilgilerini göster
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            fileInfo.innerHTML = `
+                📁 <strong>${file.name}</strong><br>
+                📏 Boyut: ${fileSize} MB<br>
+                🎨 Tip: ${file.type}
+            `;
+            
+            // Preview göster
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewArea.style.display = 'block';
+                hideResult();
+            };
+            reader.readAsDataURL(file);
+            
+            console.log('✅ Dosya seçildi:', file.name);
+        }
+        
+        // Supabase'e gönderme
+        sendBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showResult('❌ Lütfen önce bir dosya seçin.', 'error');
+                return;
+            }
+            
+            try {
+                sendBtn.disabled = true;
+                sendBtn.textContent = '📤 Gönderiliyor...';
+                progressBar.style.display = 'block';
+                showProgress(0);
+                
+                // Benzersiz dosya adı oluştur
+                const timestamp = Date.now();
+                const fileName = `${timestamp}_${selectedFile.name}`;
+                
+                console.log('🚀 Gönderiliyor:', fileName);
+                
+                // Supabase Storage'a yükle
+                const uploadResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${fileName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': selectedFile.type,
+                        'x-upsert': 'true'
+                    },
+                    body: selectedFile
+                });
+                
+                showProgress(50);
+                
+                if (!uploadResponse.ok) {
+                    throw new Error(`Upload hatası: ${uploadResponse.status}`);
+                }
+                
+                // Public URL oluştur
+                const publicURL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${fileName}`;
+                
+                showProgress(75);
+                
+                // Database'e kaydet
+                const dbResponse = await fetch(`${SUPABASE_URL}/rest/v1/prompts`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        prompt: `Uploaded image: ${selectedFile.name}`,
+                        image_url: publicURL,
+                        status: 'uploaded',
+                        created_at: new Date().toISOString()
+                    })
+                });
+                
+                showProgress(100);
+                
+                if (dbResponse.ok) {
+                    const data = await dbResponse.json();
+                    console.log('✅ Başarıyla kaydedildi:', data[0].id);
+                    
+                    showResult(`
+                        ✅ <strong>Başarıyla gönderildi!</strong><br><br>
+                        📁 Dosya: ${selectedFile.name}<br>
+                        🆔 ID: ${data[0].id}<br>
+                        🔗 <a href="${publicURL}" target="_blank">Görseli Görüntüle</a>
+                    `, 'success');
+                    
+                    // Form sıfırla
+                    resetForm();
+                } else {
+                    throw new Error('Database kayıt hatası');
+                }
+                
+            } catch (error) {
+                console.error('❌ Hata:', error);
+                showResult(`❌ Gönderim hatası: ${error.message}`, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = '🚀 Supabase\'e Gönder';
+                progressBar.style.display = 'none';
+            }
+        });
+        
+        // Progress göster
+        function showProgress(percent) {
+            progressFill.style.width = percent + '%';
+        }
+        
+        // Sonuç göster
+        function showResult(message, type) {
+            result.innerHTML = message;
+            result.className = `result ${type}`;
+            result.style.display = 'block';
+        }
+        
+        // Sonucu gizle
+        function hideResult() {
+            result.style.display = 'none';
+        }
+        
+        // Formu sıfırla
+        function resetForm() {
+            selectedFile = null;
+            fileInput.value = '';
+            previewArea.style.display = 'none';
+            progressFill.style.width = '0%';
+        }
+    </script>
+</body>
+</html>
